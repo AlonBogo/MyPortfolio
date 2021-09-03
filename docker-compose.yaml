@@ -1,0 +1,67 @@
+version: '3.3'
+
+services:
+  db:
+    container_name: 'mysql'
+    image: 'mysql:5.7'
+    # command: --explicit_defaults_for_timestamp
+    restart: always
+    environment:
+      - MYSQL_ROOT_PASSWORD=password
+      - MYSQL_INITDB_SKIP_TZINFO=GMT
+    networks:
+      - 'backend'
+      # - 'frontend'
+    volumes: 
+      - 'db-data:/var/lib/mysql'
+      - './db/:/docker-entrypoint-initdb.d/'
+    # ports:
+    #   - '8080:3306'
+  
+  app:
+    container_name: 'app'
+    build: ./app/.
+    networks:
+      - 'backend'
+      - 'frontend'
+    ports:
+      - '5000:5000'
+    depends_on: 
+      - 'db'
+    volumes: 
+      - 'static:/app/static/'
+      - 'templates:/app/templates/'
+    environment:
+      # WAIT_HOSTS: db:8080
+      WAIT_HOSTS: db:3306
+      WAIT_SLEEP_INTERVAL: 20
+    restart: always
+  
+  front:
+    container_name: 'nginx'
+    build: ./nginx/.
+    ports: 
+      - "80:80"
+    networks:
+      - 'frontend'
+    volumes: 
+      - 'static:/usr/share/nginx/html/static'
+      - 'templates:/usr/share/nginx/html'
+    healthcheck:
+        test: ["CMD", "wget", "-qO-", "http://app:5000"]
+        interval: 5s
+        timeout: 3s
+        retries: 3
+    depends_on: 
+      - 'app'
+    restart: on-failure
+
+networks:
+  backend:
+  frontend:
+
+volumes: 
+  db-data:
+  sql-init:
+  static:
+  templates:
